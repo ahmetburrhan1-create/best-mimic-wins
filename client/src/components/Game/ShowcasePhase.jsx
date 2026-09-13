@@ -12,6 +12,7 @@ export default function ShowcasePhase() {
   const currentItem = room.showcaseItem;
 
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [replayTrigger, setReplayTrigger] = useState(1);
   const audioHandleRef = useRef(null);
 
   const isMe = currentItem?.socketId === currentPlayer?.socketId;
@@ -22,6 +23,9 @@ export default function ShowcasePhase() {
     if (audioHandleRef.current) {
       audioHandleRef.current.stop();
     }
+
+    // Trigger video to restart from 0:00 in lockstep with the voice
+    setReplayTrigger(prev => prev + 1);
 
     setIsPlayingAudio(true);
     playWithEffect(currentItem.audioData, effect, () => {
@@ -108,13 +112,16 @@ export default function ShowcasePhase() {
         </div>
       </div>
 
-      {/* Main Video Stage */}
+      {/* Main Video Stage: Plays Video in Background Synchronized with Player Voice */}
       <div className="w-full mb-6">
         <ClipPlayer
           clip={clip}
           isMuted={true}
+          isDubbedMode={true}
           showSubtitles={true}
           autoPlay={true}
+          replayTrigger={replayTrigger}
+          onReplay={playVoice}
         />
       </div>
 

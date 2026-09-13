@@ -30,6 +30,7 @@ export default function RecordPhase() {
   const [showMysteryBox, setShowMysteryBox] = useState(true);
   const [powerUp, setPowerUp] = useState(null);
   const [elapsedRecordTime, setElapsedRecordTime] = useState(0);
+  const [previewVideoTrigger, setPreviewVideoTrigger] = useState(0);
 
   const timerRef = useRef(null);
 
@@ -64,6 +65,7 @@ export default function RecordPhase() {
 
   const handleStartRecord = async () => {
     playSound('start_record');
+    setPreviewVideoTrigger(c => c + 1);
     await startRecording();
   };
 
@@ -76,6 +78,15 @@ export default function RecordPhase() {
     playSound('click');
     resetRecording();
     setElapsedRecordTime(0);
+  };
+
+  const handleTogglePreview = () => {
+    if (isPlayingPreview) {
+      stopPreview();
+    } else {
+      setPreviewVideoTrigger(c => c + 1);
+      playPreview();
+    }
   };
 
   const handleFinalSubmit = () => {
@@ -142,8 +153,10 @@ export default function RecordPhase() {
         <ClipPlayer
           clip={clip}
           isMuted={true}
+          isDubbedMode={!!audioUrl}
           showSubtitles={true}
           autoPlay={true}
+          replayTrigger={previewVideoTrigger}
         />
       </div>
 
@@ -231,11 +244,11 @@ export default function RecordPhase() {
             {!isRecording && audioUrl && (
               <>
                 <button
-                  onClick={isPlayingPreview ? stopPreview : playPreview}
+                  onClick={handleTogglePreview}
                   className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold flex items-center gap-1.5 border border-slate-700 transition-all"
                 >
                   <Play className={`w-3.5 h-3.5 ${isPlayingPreview ? 'text-emerald-400' : ''}`} />
-                  <span>{isPlayingPreview ? 'Durdur' : 'Kaydı Dinle'}</span>
+                  <span>{isPlayingPreview ? 'Durdur' : 'Kaydı Dinle (Video ile)'}</span>
                 </button>
 
                 <button

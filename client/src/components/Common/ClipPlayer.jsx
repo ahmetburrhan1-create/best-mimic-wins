@@ -7,7 +7,10 @@ export default function ClipPlayer({
   dubbedAudioUrl = null,
   showSubtitles = true,
   autoPlay = true,
-  onEnded = null
+  onEnded = null,
+  onReplay = null,
+  isDubbedMode = false,
+  replayTrigger = 0
 }) {
   const videoRef = useRef(null);
   const dubbedAudioRef = useRef(null);
@@ -17,6 +20,14 @@ export default function ClipPlayer({
   const [duration, setDuration] = useState(clip?.duration || 4);
 
   const videoSrc = clip?.videoUrl || '/clips/kolpacino_tayfun.mp4';
+
+  useEffect(() => {
+    if (replayTrigger > 0 && videoRef.current) {
+      videoRef.current.currentTime = 0;
+      videoRef.current.play().catch(() => {});
+      setIsPlaying(true);
+    }
+  }, [replayTrigger]);
 
   useEffect(() => {
     setCurrentTime(0);
@@ -97,20 +108,25 @@ export default function ClipPlayer({
   const handleReplay = (e) => {
     if (e) e.stopPropagation();
     const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = 0;
-    video.volume = 1.0;
-    if (!isMuted) {
-      video.muted = false;
-      setIsActuallyMuted(false);
+    if (video) {
+      video.currentTime = 0;
+      video.volume = 1.0;
+      if (!isMuted) {
+        video.muted = false;
+        setIsActuallyMuted(false);
+      }
+      video.play().catch(() => {});
+      setIsPlaying(true);
     }
-    video.play();
-    setIsPlaying(true);
 
     if (dubbedAudioUrl && dubbedAudioRef.current) {
       dubbedAudioRef.current.currentTime = 0;
       dubbedAudioRef.current.volume = 1.0;
-      dubbedAudioRef.current.play();
+      dubbedAudioRef.current.play().catch(() => {});
+    }
+
+    if (typeof onReplay === 'function') {
+      onReplay();
     }
   };
 
@@ -130,7 +146,7 @@ export default function ClipPlayer({
       />
 
       {/* If scene is meant to have audio but browser auto-muted it: Show Click-to-Unmute Banner */}
-      {!isMuted && isActuallyMuted && (
+      {!isMuted && isActuallyMuted && !isDubbedMode && (
         <div 
           onClick={handleToggleMute}
           className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[2px] cursor-pointer"
@@ -164,7 +180,12 @@ export default function ClipPlayer({
         </div>
 
         <div className="flex items-center gap-2">
-          {dubbedAudioUrl ? (
+          {isDubbedMode ? (
+            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-pink-500/30 to-indigo-500/30 border border-pink-500/50 text-pink-300 text-xs font-black shadow-md animate-pulse">
+              <Mic className="w-3.5 h-3.5 text-pink-400" />
+              <span>🎬 Arkada Video + Oyuncu Sesi</span>
+            </div>
+          ) : dubbedAudioUrl ? (
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/30 border border-emerald-500/50 text-emerald-300 text-xs font-black animate-pulse">
               <Mic className="w-3.5 h-3.5" />
               <span>Oyuncunun Dublaj Sesi</span>

@@ -15,6 +15,7 @@ export default function RecordPhase() {
   const {
     isRecording,
     audioLevel,
+    frequencyBars,
     audioUrl,
     audioBase64,
     isPlayingPreview,
@@ -166,6 +167,7 @@ export default function RecordPhase() {
           clip={clip}
           elapsedTime={elapsedRecordTime}
           userAudioLevel={audioLevel}
+          frequencyBars={frequencyBars}
           isRecording={isRecording}
         />
       </div>

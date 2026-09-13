@@ -3,6 +3,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 export function useAudioRecorder() {
   const [isRecording, setIsRecording] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
+  const [frequencyBars, setFrequencyBars] = useState(() => new Array(24).fill(0));
   const [audioUrl, setAudioUrl] = useState(null);
   const [audioBase64, setAudioBase64] = useState(null);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
@@ -23,11 +24,12 @@ export function useAudioRecorder() {
 
     try {
       // Direct user gesture ensures permission prompt opens
+      // autoGainControl is set to false so browser NEVER lowers or throttles mic volume on its own!
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
-          echoCancellation: true,
-          noiseSuppression: false, // Prevents browser from swallowing loud impressions and voice acting
-          autoGainControl: true,
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
           channelCount: 1,
           sampleRate: 48000
         }
@@ -45,6 +47,7 @@ export function useAudioRecorder() {
       const source = audioCtx.createMediaStreamSource(stream);
       const analyser = audioCtx.createAnalyser();
       analyser.fftSize = 64;
+      analyser.smoothingTimeConstant = 0.5;
       source.connect(analyser);
 
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
@@ -57,6 +60,14 @@ export function useAudioRecorder() {
         }
         const avg = sum / dataArray.length;
         setAudioLevel(Math.min(100, Math.round((avg / 128) * 100)));
+
+        const bars = [];
+        for (let i = 0; i < 24; i++) {
+          const val = dataArray[i] || 0;
+          bars.push(Math.min(100, Math.round((val / 255) * 100)));
+        }
+        setFrequencyBars(bars);
+
         animFrameRef.current = requestAnimationFrame(updateLevel);
       };
       updateLevel();
@@ -184,6 +195,7 @@ export function useAudioRecorder() {
   return {
     isRecording,
     audioLevel,
+    frequencyBars,
     audioUrl,
     audioBase64,
     isPlayingPreview,

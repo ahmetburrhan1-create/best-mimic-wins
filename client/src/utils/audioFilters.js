@@ -159,21 +159,21 @@ export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnde
       }
     }
 
-    // Professional Master Dynamics Compressor (evens out loud and quiet parts)
-    const compressor = ctx.createDynamicsCompressor();
-    compressor.threshold.value = -22;
-    compressor.knee.value = 24;
-    compressor.ratio.value = 10;
-    compressor.attack.value = 0.003;
-    compressor.release.value = 0.2;
-
-    // Master Voice Volume Booster (boosts low microphone inputs by 2.4x)
+    // Clean Master Volume Booster (constant, never ducks or drops volume on its own)
     const masterGain = ctx.createGain();
-    masterGain.gain.value = 2.4;
+    masterGain.gain.value = 1.8;
 
-    lastNode.connect(compressor);
-    compressor.connect(masterGain);
-    masterGain.connect(ctx.destination);
+    // Gentle transparent ceiling limiter (only prevents digital clipping above -3dB, zero volume ducking)
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 10;
+    limiter.ratio.value = 4;
+    limiter.attack.value = 0.005;
+    limiter.release.value = 0.05;
+
+    lastNode.connect(masterGain);
+    masterGain.connect(limiter);
+    limiter.connect(ctx.destination);
 
     source.onended = () => {
       if (typeof onEnded === 'function') onEnded();

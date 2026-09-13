@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SocketProvider, useSocket } from './context/SocketContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import AuthModal from './components/Auth/AuthModal';
 import HomeView from './components/Home/HomeView';
 import LobbyView from './components/Lobby/LobbyView';
 import PreviewPhase from './components/Game/PreviewPhase';
@@ -9,10 +11,22 @@ import VotingPhase from './components/Game/VotingPhase';
 import ScoreboardPhase from './components/Game/ScoreboardPhase';
 import GameOverPhase from './components/Game/GameOverPhase';
 import ReactionOverlay from './components/Common/ReactionOverlay';
-import { Mic, Wifi, WifiOff } from 'lucide-react';
+import { Mic, Wifi, WifiOff, LogIn, User, Star, Trophy } from 'lucide-react';
 
 function GameContent() {
-  const { room, connected, myProfile } = useSocket();
+  const { room, connected, myProfile, updateProfile } = useSocket();
+  const { user, isAuthenticated, openAuth } = useAuth();
+
+  // Sync authenticated user into socket profile
+  useEffect(() => {
+    if (user) {
+      updateProfile({
+        name: user.displayName || user.username,
+        avatar: user.avatar || '👑',
+        userId: user.id
+      });
+    }
+  }, [user]);
 
   const renderCurrentPhase = () => {
     if (!room) {
@@ -42,6 +56,7 @@ function GameContent() {
   return (
     <div className="min-h-screen flex flex-col text-slate-100 selection:bg-pink-500 selection:text-white">
       <ReactionOverlay />
+      <AuthModal />
 
       {/* Modern App Navigation Bar */}
       <header className="border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-xl sticky top-0 z-40 px-4 py-3">
@@ -57,7 +72,7 @@ function GameContent() {
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 sm:gap-3">
             {/* Connection Indicator */}
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-bold">
               {connected ? (
@@ -73,13 +88,44 @@ function GameContent() {
               )}
             </div>
 
-            {/* Current Player Tag */}
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-slate-900 border border-slate-800">
-              <span className="text-base">{myProfile?.avatar || '🎭'}</span>
-              <span className="text-xs font-bold text-slate-200 max-w-[120px] truncate">
-                {myProfile?.name || 'Oyuncu'}
-              </span>
-            </div>
+            {/* Auth / Profile Button */}
+            {isAuthenticated && user ? (
+              <button
+                type="button"
+                onClick={() => openAuth('profile')}
+                className="flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-950/60 hover:bg-indigo-900/60 border border-indigo-500/50 hover:border-indigo-400 text-left transition-all cursor-pointer group shadow-sm"
+              >
+                <span className="text-base">{user.avatar || '👑'}</span>
+                <div className="flex flex-col">
+                  <span className="text-xs font-black text-white group-hover:text-indigo-300 max-w-[110px] truncate leading-tight">
+                    {user.displayName || user.username}
+                  </span>
+                  <span className="text-[9px] font-bold text-amber-400 leading-tight flex items-center gap-1">
+                    <span>Lv.{user.stats?.level || 1}</span>
+                    <span>•</span>
+                    <span>{user.stats?.gamesWon || 0}🏆</span>
+                  </span>
+                </div>
+              </button>
+            ) : (
+              <div className="flex items-center gap-2">
+                {/* Guest Pill */}
+                <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[11px] font-bold text-slate-400">
+                  <span>{myProfile?.avatar || '🎭'}</span>
+                  <span className="truncate max-w-[90px]">{myProfile?.name || 'Misafir'}</span>
+                </div>
+
+                {/* Login Button */}
+                <button
+                  type="button"
+                  onClick={() => openAuth('login')}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-indigo-600/30 to-pink-600/30 hover:from-indigo-600/50 hover:to-pink-600/50 border border-indigo-500/40 text-xs font-black text-indigo-200 hover:text-white transition-all shadow-sm cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-pink-400" />
+                  <span>Giriş Yap</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
@@ -142,9 +188,11 @@ class ErrorBoundary extends React.Component {
 export default function App() {
   return (
     <ErrorBoundary>
-      <SocketProvider>
-        <GameContent />
-      </SocketProvider>
+      <AuthProvider>
+        <SocketProvider>
+          <GameContent />
+        </SocketProvider>
+      </AuthProvider>
     </ErrorBoundary>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import AnimatedCharacter from '../Common/AnimatedCharacter';
 import confetti from 'canvas-confetti';
 import { playSound } from '../../utils/sfx';
@@ -7,9 +8,13 @@ import { Trophy, Crown, RotateCcw, Home, Sparkles } from 'lucide-react';
 
 export default function GameOverPhase() {
   const { room, isHost, startGame, returnToLobby } = useSocket();
+  const { refreshUser } = useAuth();
 
   useEffect(() => {
     playSound('win');
+    if (typeof refreshUser === 'function') {
+      refreshUser();
+    }
 
     const count = 200;
     const defaults = { origin: { y: 0.7 } };

@@ -1,22 +1,30 @@
 import React, { useState } from 'react';
 import { useSocket } from '../../context/SocketContext';
 import AnimatedCharacter from '../Common/AnimatedCharacter';
-import { Copy, Check, Play, Crown, Settings2, Users, Mic, PlusCircle, Sparkles, UserPlus, Film, X, Bot, Search, Shuffle, AlertCircle, Loader2 } from 'lucide-react';
+import { Copy, Check, Play, Crown, Settings2, Users, Mic, PlusCircle, Sparkles, UserPlus, Film, X, Bot, Search, Shuffle, AlertCircle, Loader2, Package, FolderPlus, Layers } from 'lucide-react';
 import { playSound } from '../../utils/sfx';
 
 export default function LobbyView() {
-  const { room, isHost, currentPlayer, setReady, updateSettings, startGame, addCustomClip, generateAiClip, aiClipProgress, setAiClipProgress } = useSocket();
+  const { room, isHost, currentPlayer, setReady, updateSettings, startGame, addCustomClip, createCustomPack, generateAiClip, aiClipProgress, setAiClipProgress } = useSocket();
   const [copied, setCopied] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showAddClipModal, setShowAddClipModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [showCreatePackModal, setShowCreatePackModal] = useState(false);
   const [allowSoloStart, setAllowSoloStart] = useState(false);
 
-  // AI Clip State
+  // Pack creation form state
+  const [newPackName, setNewPackName] = useState('');
+  const [newPackDesc, setNewPackDesc] = useState('');
+  const [newPackIcon, setNewPackIcon] = useState('📦');
+  const [newPackColor, setNewPackColor] = useState('from-purple-600 to-indigo-700');
+
+  // AI Clip State & Target Pack
   const [aiQuery, setAiQuery] = useState('');
   const [aiIsGenerating, setAiIsGenerating] = useState(false);
   const [aiResultClip, setAiResultClip] = useState(null);
   const [aiError, setAiError] = useState(null);
+  const [aiTargetPackId, setAiTargetPackId] = useState(() => room?.settings?.selectedPackId || 'pack_all');
 
   // New Custom Clip Form State
   const [customTitle, setCustomTitle] = useState('');
@@ -24,6 +32,7 @@ export default function LobbyView() {
   const [customCharacter, setCustomCharacter] = useState('');
   const [customSubtitle, setCustomSubtitle] = useState('');
   const [customCategory, setCustomCategory] = useState('komedi');
+  const [customClipTargetPackId, setCustomClipTargetPackId] = useState(() => room?.settings?.selectedPackId || 'pack_all');
   const [clipAddedMsg, setClipAddedMsg] = useState(false);
 
   const handleCopyCode = () => {
@@ -55,7 +64,7 @@ export default function LobbyView() {
       subtitle: customSubtitle.trim(),
       category: customCategory,
       duration: 12
-    });
+    }, customClipTargetPackId);
 
     setClipAddedMsg(true);
     setTimeout(() => {
@@ -74,7 +83,7 @@ export default function LobbyView() {
     setAiError(null);
     setAiResultClip(null);
 
-    const res = await generateAiClip({ query, isRandom });
+    const res = await generateAiClip({ query, isRandom, targetPackId: aiTargetPackId });
     setAiIsGenerating(false);
 
     if (res?.success && res.clip) {
@@ -84,6 +93,39 @@ export default function LobbyView() {
       playSound('wrong');
       setAiError(res?.error || 'Klip oluşturulamadı. Lütfen başka bir film/replik adı deneyin.');
     }
+  };
+
+  const handleCreatePackSubmit = async (e) => {
+    e.preventDefault();
+    if (!newPackName.trim()) return;
+
+    playSound('win');
+    const res = await createCustomPack({
+      name: newPackName.trim(),
+      description: newPackDesc.trim() || 'Özel oluşturulan sahne paketi.',
+      icon: newPackIcon,
+      color: newPackColor
+    });
+
+    if (res?.success && res.pack) {
+      if (isHost) {
+        updateSettings({ selectedPackId: res.pack.id });
+      }
+      setAiTargetPackId(res.pack.id);
+      setCustomClipTargetPackId(res.pack.id);
+    }
+
+    setShowCreatePackModal(false);
+    setNewPackName('');
+    setNewPackDesc('');
+  };
+
+  const handleSelectPack = (packId) => {
+    if (!isHost) return;
+    playSound('click');
+    updateSettings({ selectedPackId: packId });
+    setAiTargetPackId(packId);
+    setCustomClipTargetPackId(packId);
   };
 
   const playerCount = room.players.length;
@@ -222,6 +264,102 @@ export default function LobbyView() {
                   ) : (
                     <span className="text-xs font-bold text-slate-500">
                       Bekliyor...
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Replik & Sahne Paketi Seçim Bölümü */}
+      <div className="bg-slate-900/85 backdrop-blur-xl border border-indigo-500/30 rounded-3xl p-5 sm:p-6 mb-6 shadow-2xl">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-purple-500 to-indigo-600 flex items-center justify-center text-white shadow-md">
+              <Package className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-white m-0 flex items-center gap-2">
+                <span>Replik & Sahne Paketleri</span>
+                {isHost && (
+                  <span className="text-[10px] text-amber-400 font-bold bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    Oda Yöneticisi Seçimi
+                  </span>
+                )}
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Oyunda hangi repliklerin geleceğini belirle veya kendi özel paketini oluştur!
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => { playSound('click'); setShowCreatePackModal(true); }}
+            className="px-3.5 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/50 text-indigo-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+          >
+            <FolderPlus className="w-4 h-4 text-pink-400" />
+            <span>+ Kendi Paketini Oluştur</span>
+          </button>
+        </div>
+
+        {/* Grid of Packs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {(room.packs || [
+            { id: 'pack_all', name: 'Tüm Replikler (Karma)', description: 'Tüm sahneler karışık', icon: '🌟', color: 'from-indigo-600 to-pink-600', clipCount: 13 },
+            { id: 'pack_turkish_series', name: 'Ezel & Behzat & KV', description: 'Racon ve dizi sahneleri', icon: '🚬', color: 'from-stone-800 to-zinc-950', clipCount: 4 },
+            { id: 'pack_comedy_legends', name: 'Komedi & Yeşilçam', description: 'Kolpaçino, GORA, Kemal Sunal', icon: '🎭', color: 'from-amber-600 to-rose-700', clipCount: 4 },
+            { id: 'pack_hollywood_cult', name: 'Kült Sinema', description: 'Fight Club, Godfather, Joker', icon: '🎬', color: 'from-purple-900 to-indigo-950', clipCount: 5 }
+          ]).map((pack) => {
+            const isSelected = (room.settings?.selectedPackId || 'pack_all') === pack.id;
+            return (
+              <div
+                key={pack.id}
+                onClick={() => handleSelectPack(pack.id)}
+                className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between cursor-pointer group ${
+                  isSelected
+                    ? 'bg-gradient-to-b from-indigo-950/80 to-slate-900 border-indigo-500 ring-2 ring-indigo-500/50 shadow-xl shadow-indigo-500/20 scale-[1.02]'
+                    : 'bg-slate-800/60 border-slate-700/70 hover:border-slate-600 hover:bg-slate-800/90'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-2xl p-1.5 rounded-xl bg-black/40 border border-white/10">
+                      {pack.icon || '📦'}
+                    </span>
+                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-full border ${
+                      isSelected
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-slate-700/40 text-slate-400 border-slate-700'
+                    }`}>
+                      {pack.clipCount ?? 0} Klip
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-black text-white m-0 group-hover:text-indigo-300 transition-colors">
+                    {pack.name}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-2 leading-relaxed">
+                    {pack.description}
+                  </p>
+                </div>
+
+                <div className="mt-3 pt-2 border-t border-slate-700/50 flex items-center justify-between">
+                  {isSelected ? (
+                    <span className="text-[10px] font-black text-emerald-400 flex items-center gap-1">
+                      <Check className="w-3.5 h-3.5" />
+                      <span>Aktif Paket</span>
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-500 group-hover:text-slate-300">
+                      {isHost ? 'Seçmek için tıkla' : 'Bekleniyor'}
+                    </span>
+                  )}
+                  {pack.isDefault === false && (
+                    <span className="text-[9px] font-black text-pink-400 uppercase tracking-widest bg-pink-500/10 px-1.5 py-0.5 rounded">
+                      ÖZEL
                     </span>
                   )}
                 </div>
@@ -404,6 +542,23 @@ export default function LobbyView() {
                   </div>
                 </div>
 
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                    Eklenecek Paket
+                  </label>
+                  <select
+                    value={customClipTargetPackId}
+                    onChange={(e) => setCustomClipTargetPackId(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-semibold focus:outline-none focus:border-pink-500"
+                  >
+                    {(room.packs || []).map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.icon || '📦'} {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
                 <button
                   type="submit"
                   className="w-full mt-4 py-3 rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 hover:opacity-90 text-white font-black text-xs uppercase tracking-wider transition-all"
@@ -526,6 +681,29 @@ export default function LobbyView() {
               İstediğin film/dizi adını veya repliği yaz; yapay zeka YouTube'dan sahneyi bulup vurucu 1 cümleyi milimetrik olarak kırparak odaya eklesin!
             </p>
 
+            {/* Target Pack Selector for AI */}
+            <div className="mb-4 p-3.5 rounded-2xl bg-slate-800/80 border border-purple-500/30">
+              <label className="block text-[11px] font-black text-purple-300 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-pink-400" />
+                <span>📦 Kesilen Sahne Hangi Pakete Eklensin?</span>
+              </label>
+              <select
+                disabled={aiIsGenerating}
+                value={aiTargetPackId}
+                onChange={(e) => setAiTargetPackId(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white text-xs font-bold focus:outline-none focus:border-purple-500 disabled:opacity-50"
+              >
+                {(room.packs || []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.icon || '📦'} {p.name} ({p.clipCount ?? 0} Klip)
+                  </option>
+                ))}
+              </select>
+              <p className="text-[10px] text-slate-400 mt-1">
+                Yapay zekanın kırptığı video seçtiğin pakete doğrudan eklenecektir.
+              </p>
+            </div>
+
             {/* Quick Random Discovery Button */}
             <div className="mb-4">
               <button
@@ -627,6 +805,115 @@ export default function LobbyView() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Kendi Paketini Oluştur Modal */}
+      {showCreatePackModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-indigo-500/50 rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
+            <button
+              onClick={() => setShowCreatePackModal(false)}
+              className="absolute top-4 right-4 p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="w-9 h-9 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xl shadow">
+                📦
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-white m-0">
+                  Yeni Replik Paketi Oluştur
+                </h3>
+                <span className="text-[10px] font-bold text-indigo-400">
+                  Kendi temanı, dizini veya özel replik koleksiyonunu yarat
+                </span>
+              </div>
+            </div>
+
+            <form onSubmit={handleCreatePackSubmit} className="space-y-3.5 mt-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                  Paket Adı
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newPackName}
+                  onChange={(e) => setNewPackName(e.target.value)}
+                  placeholder="Örn: Kurtlar Vadisi Derin Konsey, Çukur Racon..."
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                  Paket Açıklaması
+                </label>
+                <input
+                  type="text"
+                  value={newPackDesc}
+                  onChange={(e) => setNewPackDesc(e.target.value)}
+                  placeholder="Örn: En sert racon replikleri ve dizi sahneleri..."
+                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                    İkon / Emoji
+                  </label>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {['📦', '🔥', '🕶️', '🔫', '🎭', '🎬', '💀', '👑'].map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        onClick={() => setNewPackIcon(emoji)}
+                        className={`w-7 h-7 rounded-xl border text-sm flex items-center justify-center transition-all ${
+                          newPackIcon === emoji
+                            ? 'bg-indigo-600 border-indigo-400 ring-2 ring-indigo-400/40 scale-110'
+                            : 'bg-slate-800 border-slate-700 hover:border-slate-600 text-slate-300'
+                        }`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase mb-1">
+                    Tema Rengi
+                  </label>
+                  <select
+                    value={newPackColor}
+                    onChange={(e) => setNewPackColor(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-800 border border-slate-700 text-white text-xs font-semibold focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="from-purple-600 to-indigo-700">Mor - Gece</option>
+                    <option value="from-rose-600 to-orange-600">Alev - Kırmızı</option>
+                    <option value="from-emerald-600 to-teal-700">Neon - Yeşil</option>
+                    <option value="from-amber-500 to-yellow-600">Altın - Sarı</option>
+                    <option value="from-stone-800 to-zinc-950">Karanlık - Siyah</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="p-3 rounded-2xl bg-indigo-950/40 border border-indigo-500/20 text-[11px] text-indigo-300">
+                💡 Paketi oluşturduktan sonra AI Sahne Kesici veya Manuel Ekleme ile doğrudan bu pakete istediğin kadar sahne ekleyebilirsin!
+              </div>
+
+              <button
+                type="submit"
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:opacity-95 text-white font-black text-xs uppercase tracking-wider transition-all shadow-lg shadow-indigo-500/25"
+              >
+                Paketi Oluştur & Seç
+              </button>
+            </form>
           </div>
         </div>
       )}

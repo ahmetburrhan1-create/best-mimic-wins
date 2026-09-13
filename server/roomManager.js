@@ -1,4 +1,5 @@
-import { getRandomClips, CLIPS_DATA, addCustomClip } from './clipsData.js';
+import { getRandomClips, CLIPS_DATA, addCustomClip, getAllPacks, createCustomPack, getClipsForPack } from './clipsData.js';
+import { authService } from './authService.js';
 
 class RoomManager {
   constructor(io) {
@@ -27,7 +28,8 @@ class RoomManager {
         previewDuration: initialSettings.previewDuration || 12,
         votingDuration: initialSettings.votingDuration || 20,
         category: initialSettings.category || 'all',
-        mode: initialSettings.mode || 'mimic'
+        mode: initialSettings.mode || 'mimic',
+        selectedPackId: initialSettings.selectedPackId || 'pack_all'
       },
       currentRound: 0,
       clips: [],
@@ -43,6 +45,7 @@ class RoomManager {
 
     const hostPlayer = {
       socketId: hostData.socketId,
+      userId: hostData.userId || null,
       name: hostData.name || 'Sunucu',
       avatar: hostData.avatar || '👑',
       score: 0,
@@ -77,6 +80,7 @@ class RoomManager {
 
     const player = {
       socketId: playerData.socketId,
+      userId: playerData.userId || null,
       name: playerData.name || `Oyuncu ${room.players.size + 1}`,
       avatar: playerData.avatar || '🐱',
       score: 0,
@@ -144,14 +148,22 @@ class RoomManager {
     return true;
   }
 
-  addCustomClipToRoom(code, clipData) {
+  addCustomClipToRoom(code, clipData, targetPackId = null) {
     const room = this.rooms.get(code);
     if (!room) return null;
-    const newClip = addCustomClip(clipData);
+    const newClip = addCustomClip(clipData, targetPackId);
     if (!room.customClips) room.customClips = [];
     room.customClips.unshift(newClip);
     this.broadcastRoomState(room);
     return newClip;
+  }
+
+  createCustomPack(code, packData) {
+    const room = this.rooms.get(code);
+    if (!room) return null;
+    const newPack = createCustomPack(packData);
+    this.broadcastRoomState(room);
+    return newPack;
   }
 
   startGame(code, socketId) {
@@ -160,18 +172,16 @@ class RoomManager {
 
     room.currentRound = 0;
     const needed = room.settings.rounds;
-    const custom = room.customClips || [];
+    const packId = room.settings.selectedPackId || 'pack_all';
 
     if (!room.usedClipIds) room.usedClipIds = new Set();
     const excluded = Array.from(room.usedClipIds);
-    let pool = getRandomClips(room.settings.category, Math.max(0, needed - custom.length), excluded);
+    let selectedClips = getClipsForPack(packId, needed, excluded);
 
-    // If remaining pool couldn't fulfill, reset and take from fresh pool
-    let selectedClips = [...custom, ...pool];
+    // If remaining pool couldn't fulfill, reset and take from fresh pack
     if (selectedClips.length < needed) {
       room.usedClipIds.clear();
-      const freshPool = getRandomClips(room.settings.category, Math.max(0, needed - custom.length));
-      selectedClips = [...custom, ...freshPool];
+      selectedClips = getClipsForPack(packId, needed, []);
     }
 
     room.clips = selectedClips.slice(0, needed);
@@ -195,9 +205,10 @@ class RoomManager {
     
     let roundClip = room.clips[room.currentRound - 1];
     if (!roundClip) {
+      const packId = room.settings.selectedPackId || 'pack_all';
       const excluded = Array.from(room.usedClipIds || []);
-      const fallback = getRandomClips(room.settings.category, 1, excluded);
-      roundClip = fallback[0] || getRandomClips('all', 1)[0];
+      const fallback = getClipsForPack(packId, 1, excluded);
+      roundClip = fallback[0] || getClipsForPack('pack_all', 1, [])[0];
       if (roundClip?.id && room.usedClipIds) {
         room.usedClipIds.add(roundClip.id);
       }
@@ -423,6 +434,22 @@ class RoomManager {
     this.clearTimer(room);
     room.status = 'GAME_OVER';
     room.timer = 0;
+
+    // Record stats for logged-in accounts
+    try {
+      const allPlayers = Array.from(room.players.values());
+      const maxScore = allPlayers.reduce((max, p) => Math.max(max, p.score || 0), 0);
+
+      for (const p of allPlayers) {
+        if (p.userId) {
+          const isWinner = (p.score || 0) > 0 && (p.score || 0) === maxScore;
+          authService.recordGameResult(p.userId, { won: isWinner, score: p.score || 0 });
+        }
+      }
+    } catch (err) {
+      console.error('Error saving game over stats:', err);
+    }
+
     this.broadcastRoomState(room);
   }
 
@@ -486,12 +513,14 @@ class RoomManager {
       totalRounds: room.settings.rounds,
       currentClip: room.currentClip,
       customClips: room.customClips || [],
+      packs: getAllPacks(),
       timer: room.timer,
       showcaseIndex: room.showcaseIndex,
       showcaseTotal: room.showcaseList ? room.showcaseList.length : 0,
       showcaseItem: room.showcaseList && room.showcaseList[room.showcaseIndex] ? room.showcaseList[room.showcaseIndex] : null,
       players: Array.from(room.players.values()).map(p => ({
         socketId: p.socketId,
+        userId: p.userId || null,
         name: p.name,
         avatar: p.avatar,
         score: p.score,

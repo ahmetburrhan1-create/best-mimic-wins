@@ -170,34 +170,129 @@ export const CLIPS_DATA = [
   }
 ];
 
-let customClipsPool = [];
+export const DEFAULT_PACKS = [
+  {
+    id: "pack_all",
+    name: "Tüm Replikler (Karma Paket)",
+    description: "Tüm diziler, sinema ve komedi klasikleri karışık gelir",
+    icon: "🌟",
+    color: "from-indigo-600 via-purple-600 to-pink-600",
+    isDefault: true,
+    clipIds: []
+  },
+  {
+    id: "pack_turkish_series",
+    name: "Ezel, Behzat & Kurtlar Vadisi",
+    description: "Ağır abiler, unutulmaz raconlar ve kült dizi replikleri",
+    icon: "🚬",
+    color: "from-stone-800 to-zinc-950",
+    isDefault: true,
+    clipIds: ["ezel_ramiz", "behzat_mutlu", "kurtlar_cakir", "organize_isler_araba"]
+  },
+  {
+    id: "pack_comedy_legends",
+    name: "Komedi & Yeşilçam Efsaneleri",
+    description: "Kolpaçino, Şafak Sezer, Kemal Sunal, G.O.R.A ve Recep İvedik",
+    icon: "🎭",
+    color: "from-amber-600 to-rose-700",
+    isDefault: true,
+    clipIds: ["kolpacino_tayfun", "kemal_sunal_mesela", "gora_logar", "recep_ivedik_bohohoyt"]
+  },
+  {
+    id: "pack_hollywood_cult",
+    name: "Kült Hollywood & Sinema",
+    description: "Breaking Bad, Godfather, Joker, Scarface ve Matrix",
+    icon: "🎬",
+    color: "from-purple-900 to-indigo-950",
+    isDefault: true,
+    clipIds: ["breaking_bad_knocks", "joker_why_so_serious", "scarface_friend", "godfather_refuse", "matrix_morpheus"]
+  }
+];
 
-export function addCustomClip(clip) {
+let customClipsPool = [];
+let customPacksPool = [];
+
+export function getAllPacks() {
+  const allClips = [...customClipsPool, ...CLIPS_DATA];
+  const packs = [...DEFAULT_PACKS, ...customPacksPool].map(pack => {
+    let count = 0;
+    if (pack.id === 'pack_all') {
+      count = allClips.length;
+    } else {
+      const validClips = (pack.clipIds || []).filter(cid => allClips.some(c => c.id === cid));
+      count = validClips.length;
+    }
+    return {
+      ...pack,
+      clipCount: count
+    };
+  });
+  return packs;
+}
+
+export function createCustomPack({ name, description = '', icon = '📦', color = 'from-violet-600 to-fuchsia-700', clipIds = [] }) {
+  const newPack = {
+    id: `pack_${Date.now()}`,
+    name: name.trim() || 'Özel Replik Paketi',
+    description: description.trim() || 'Kullanıcı tarafından oluşturulan özel paket.',
+    icon: icon || '📦',
+    color: color || 'from-violet-600 to-fuchsia-700',
+    isDefault: false,
+    clipIds: Array.isArray(clipIds) ? clipIds : []
+  };
+  customPacksPool.unshift(newPack);
+  return newPack;
+}
+
+export function addCustomClip(clip, targetPackId = null) {
   const newClip = {
-    id: `custom_${Date.now()}`,
+    id: clip.id || `custom_${Date.now()}`,
     title: clip.title || `${clip.source || 'Özel'} Repliği`,
     source: clip.source || "Özel Film",
     category: clip.category || "komedi",
     character: clip.character || "Karakter",
     difficulty: "Orta",
-    duration: 4,
+    duration: clip.duration || 4,
     videoUrl: clip.videoUrl || null,
     subtitle: clip.subtitle || "Tek cümlelik replik",
-    context: "Kullanıcı tarafından eklenen özel sahne.",
-    tips: "Repliğin duygusunu vererek tek cümle söyle!",
-    color: "from-indigo-600 to-pink-600",
-    icon: "🎬"
+    context: clip.context || "Kullanıcı veya AI tarafından eklenen özel sahne.",
+    tips: clip.tips || "Repliğin duygusunu vererek tek cümle söyle!",
+    color: clip.color || "from-indigo-600 to-pink-600",
+    icon: clip.icon || "🎬"
   };
+
   customClipsPool.unshift(newClip);
+
+  // If a target pack is specified, associate clip with that pack!
+  if (targetPackId && targetPackId !== 'pack_all') {
+    let pack = customPacksPool.find(p => p.id === targetPackId) || DEFAULT_PACKS.find(p => p.id === targetPackId);
+    if (pack) {
+      if (!pack.clipIds) pack.clipIds = [];
+      if (!pack.clipIds.includes(newClip.id)) {
+        pack.clipIds.push(newClip.id);
+      }
+    }
+  }
+
   return newClip;
 }
 
-export function getRandomClips(category = "all", count = 3, excludeIds = []) {
-  let pool = [...customClipsPool, ...CLIPS_DATA];
-  if (category && category !== "all") {
-    const categoryClips = pool.filter(c => c.category === category);
-    if (categoryClips.length > 0) {
-      pool = categoryClips;
+export function getClipsForPack(packId = 'pack_all', count = 3, excludeIds = []) {
+  const allClips = [...customClipsPool, ...CLIPS_DATA];
+  let pool = [];
+
+  if (!packId || packId === 'pack_all' || packId === 'all') {
+    pool = allClips;
+  } else {
+    const pack = customPacksPool.find(p => p.id === packId) || DEFAULT_PACKS.find(p => p.id === packId);
+    if (pack && pack.clipIds && pack.clipIds.length > 0) {
+      pool = pack.clipIds
+        .map(cid => allClips.find(c => c.id === cid))
+        .filter(Boolean);
+    }
+    // Fallback if pack is empty or not found
+    if (pool.length === 0) {
+      pool = allClips;
     }
   }
 
@@ -205,11 +300,10 @@ export function getRandomClips(category = "all", count = 3, excludeIds = []) {
   const excludeSet = new Set(excludeIds || []);
   let available = pool.filter(c => !excludeSet.has(c.id));
 
-  // If we don't have enough fresh clips, we use all available + remaining pool
+  // If we don't have enough fresh clips, refill from remaining pool
   if (available.length < count) {
     const remainingNeeded = count - available.length;
     const poolWithoutAvailable = pool.filter(c => !available.some(a => a.id === c.id));
-    // Fisher-Yates on poolWithoutAvailable
     for (let i = poolWithoutAvailable.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [poolWithoutAvailable[i], poolWithoutAvailable[j]] = [poolWithoutAvailable[j], poolWithoutAvailable[i]];
@@ -225,4 +319,8 @@ export function getRandomClips(category = "all", count = 3, excludeIds = []) {
   }
 
   return shuffled.slice(0, count);
+}
+
+export function getRandomClips(category = "all", count = 3, excludeIds = []) {
+  return getClipsForPack('pack_all', count, excludeIds);
 }

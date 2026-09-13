@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import RoomManager from './roomManager.js';
 import { generateAiClip } from './aiClipService.js';
+import { authService } from './authService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,12 +36,87 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// --- AUTH REST API ROUTES ---
+app.post('/api/auth/register', (req, res) => {
+  try {
+    const { username, password, displayName, avatar } = req.body;
+    const result = authService.register({ username, password, displayName, avatar });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Register error:', err);
+    res.status(500).json({ success: false, error: 'Sunucu hatası oluştu.' });
+  }
+});
+
+app.post('/api/auth/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const result = authService.login({ username, password });
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+    res.json(result);
+  } catch (err) {
+    console.error('Login error:', err);
+    res.status(500).json({ success: false, error: 'Sunucu hatası oluştu.' });
+  }
+});
+
+app.get('/api/auth/me', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    if (!token) {
+      return res.status(401).json({ success: false, error: 'Yetkilendirme tokenı eksik.' });
+    }
+    const user = authService.getUserByToken(token);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Geçersiz veya süresi dolmuş oturum.' });
+    }
+    res.json({ success: true, user });
+  } catch (err) {
+    console.error('Auth me error:', err);
+    res.status(500).json({ success: false, error: 'Sunucu hatası oluştu.' });
+  }
+});
+
+app.post('/api/auth/update', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    const user = authService.getUserByToken(token);
+    if (!user) {
+      return res.status(401).json({ success: false, error: 'Yetkisiz erişim.' });
+    }
+    const { displayName, avatar } = req.body;
+    const result = authService.updateProfile(user.id, { displayName, avatar });
+    res.json(result);
+  } catch (err) {
+    console.error('Update profile error:', err);
+    res.status(500).json({ success: false, error: 'Profil güncellenemedi.' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim();
+    authService.logout(token);
+    res.json({ success: true });
+  } catch (err) {
+    res.json({ success: true });
+  }
+});
+
 io.on('connection', (socket) => {
   let currentRoomCode = null;
 
-  socket.on('create_room', ({ name, avatar, settings }, callback) => {
+  socket.on('create_room', ({ name, avatar, userId, settings }, callback) => {
     try {
-      const room = roomManager.createRoom({ socketId: socket.id, name, avatar }, settings);
+      const room = roomManager.createRoom({ socketId: socket.id, name, avatar, userId }, settings);
       currentRoomCode = room.code;
       socket.join(room.code);
       const publicState = roomManager.getPublicRoomState(room);
@@ -53,9 +129,9 @@ io.on('connection', (socket) => {
     }
   });
 
-  socket.on('join_room', ({ roomCode, name, avatar }, callback) => {
+  socket.on('join_room', ({ roomCode, name, avatar, userId }, callback) => {
     try {
-      const result = roomManager.joinRoom(roomCode, { socketId: socket.id, name, avatar });
+      const result = roomManager.joinRoom(roomCode, { socketId: socket.id, name, avatar, userId });
       if (!result.success) {
         if (typeof callback === 'function') callback({ success: false, error: result.error });
         return;
@@ -93,11 +169,20 @@ io.on('connection', (socket) => {
     roomManager.submitVote(roomCode, socket.id, votedForSocketId);
   });
 
-  socket.on('add_custom_clip', ({ roomCode, clip }) => {
-    roomManager.addCustomClipToRoom(roomCode, clip);
+  socket.on('create_custom_pack', ({ roomCode, pack }, callback) => {
+    try {
+      const newPack = roomManager.createCustomPack(roomCode, pack);
+      if (typeof callback === 'function') callback({ success: true, pack: newPack });
+    } catch (err) {
+      if (typeof callback === 'function') callback({ success: false, error: err.message });
+    }
   });
 
-  socket.on('ai_generate_clip', async ({ roomCode, query, isRandom }, callback) => {
+  socket.on('add_custom_clip', ({ roomCode, clip, targetPackId }) => {
+    roomManager.addCustomClipToRoom(roomCode, clip, targetPackId);
+  });
+
+  socket.on('ai_generate_clip', async ({ roomCode, query, isRandom, targetPackId }, callback) => {
     try {
       io.to(roomCode).emit('ai_clip_progress', { step: 'search', message: 'YouTube sahnesi taranıyor...' });
       const clip = await generateAiClip({
@@ -107,7 +192,7 @@ io.on('connection', (socket) => {
           io.to(roomCode).emit('ai_clip_progress', progress);
         }
       });
-      const addedClip = roomManager.addCustomClipToRoom(roomCode, clip);
+      const addedClip = roomManager.addCustomClipToRoom(roomCode, clip, targetPackId);
       io.to(roomCode).emit('ai_clip_success', { clip: addedClip });
       if (typeof callback === 'function') callback({ success: true, clip: addedClip });
     } catch (err) {

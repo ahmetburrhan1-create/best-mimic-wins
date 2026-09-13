@@ -30,3 +30,6 @@ Thumbs.db
 scratch/
 scripts/
 
+# User data
+server/data/
+

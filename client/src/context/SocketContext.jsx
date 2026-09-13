@@ -103,12 +103,13 @@ export const SocketProvider = ({ children }) => {
     };
   }, []);
 
-  const createRoom = useCallback((settings = {}) => {
+  const createRoom = useCallback((settings = {}, customUserId = null) => {
     return new Promise((resolve) => {
       if (!socket) return resolve({ success: false, error: 'Sunucuya bağlanılamadı' });
       socket.emit('create_room', {
         name: myProfile.name,
         avatar: myProfile.avatar,
+        userId: customUserId || myProfile.userId || null,
         settings
       }, (res) => {
         if (res?.success) {
@@ -119,13 +120,14 @@ export const SocketProvider = ({ children }) => {
     });
   }, [socket, myProfile]);
 
-  const joinRoom = useCallback((roomCode) => {
+  const joinRoom = useCallback((roomCode, customUserId = null) => {
     return new Promise((resolve) => {
       if (!socket) return resolve({ success: false, error: 'Sunucuya bağlanılamadı' });
       socket.emit('join_room', {
         roomCode,
         name: myProfile.name,
-        avatar: myProfile.avatar
+        avatar: myProfile.avatar,
+        userId: customUserId || myProfile.userId || null
       }, (res) => {
         if (res?.success) {
           setRoom(res.state);
@@ -174,15 +176,24 @@ export const SocketProvider = ({ children }) => {
     socket.emit('return_to_lobby', { roomCode: room.code });
   }, [socket, room]);
 
-  const addCustomClip = useCallback((clip) => {
+  const addCustomClip = useCallback((clip, targetPackId = null) => {
     if (!socket || !room) return;
-    socket.emit('add_custom_clip', { roomCode: room.code, clip });
+    socket.emit('add_custom_clip', { roomCode: room.code, clip, targetPackId });
   }, [socket, room]);
 
-  const generateAiClip = useCallback(({ query = '', isRandom = false }) => {
+  const createCustomPack = useCallback((pack) => {
     return new Promise((resolve) => {
       if (!socket || !room) return resolve({ success: false, error: 'Oda bağlantısı yok' });
-      socket.emit('ai_generate_clip', { roomCode: room.code, query, isRandom }, (res) => {
+      socket.emit('create_custom_pack', { roomCode: room.code, pack }, (res) => {
+        resolve(res);
+      });
+    });
+  }, [socket, room]);
+
+  const generateAiClip = useCallback(({ query = '', isRandom = false, targetPackId = null }) => {
+    return new Promise((resolve) => {
+      if (!socket || !room) return resolve({ success: false, error: 'Oda bağlantısı yok' });
+      socket.emit('ai_generate_clip', { roomCode: room.code, query, isRandom, targetPackId }, (res) => {
         resolve(res);
       });
     });
@@ -213,6 +224,7 @@ export const SocketProvider = ({ children }) => {
       sendReaction,
       returnToLobby,
       addCustomClip,
+      createCustomPack,
       generateAiClip
     }}>
       {children}

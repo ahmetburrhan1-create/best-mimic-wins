@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useSocket } from '../../context/SocketContext';
+import { useAuth } from '../../context/AuthContext';
 import AnimatedCharacter, { CHARACTER_PRESETS } from '../Common/AnimatedCharacter';
-import { Sparkles, Mic, Play, Users, PlusCircle, ArrowRight, Gift } from 'lucide-react';
+import { Sparkles, Mic, Play, Users, PlusCircle, ArrowRight, Gift, LogIn, Trophy, Star, ShieldCheck } from 'lucide-react';
 import { playSound } from '../../utils/sfx';
 
 export default function HomeView() {
   const { myProfile, updateProfile, createRoom, joinRoom } = useSocket();
+  const { user, isAuthenticated, openAuth } = useAuth();
   const [activeTab, setActiveTab] = useState('create');
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -37,7 +39,7 @@ export default function HomeView() {
     setIsSubmitting(true);
     playSound('click');
 
-    const res = await createRoom(settings);
+    const res = await createRoom(settings, user?.id || null);
     setIsSubmitting(false);
     if (!res.success) {
       setErrorMsg(res.error || 'Oda oluşturulamadı!');
@@ -58,7 +60,7 @@ export default function HomeView() {
     setIsSubmitting(true);
     playSound('click');
 
-    const res = await joinRoom(roomCodeInput.toUpperCase().trim());
+    const res = await joinRoom(roomCodeInput.toUpperCase().trim(), user?.id || null);
     setIsSubmitting(false);
     if (!res.success) {
       setErrorMsg(res.error || 'Odaya katılınamadı!');
@@ -68,7 +70,7 @@ export default function HomeView() {
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 flex flex-col items-center justify-center min-h-[90vh]">
       {/* Brand Header */}
-      <div className="text-center mb-8">
+      <div className="text-center mb-6">
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-400 text-xs font-black tracking-widest uppercase mb-4 shadow-sm">
           <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
           <span>Canlı Dublaj, Ses Taklidi & Gizemli Kutu Partisi</span>
@@ -79,6 +81,58 @@ export default function HomeView() {
         <p className="mt-3 text-slate-300 text-sm sm:text-base max-w-xl mx-auto">
           Replikleri kendi sesinle taklit et, her tur gizemli kutudan ses değiştirici güçlendirmeler kazan! 🎙️🎁
         </p>
+      </div>
+
+      {/* Account Info / Teaser Card */}
+      <div className="w-full max-w-xl mb-4">
+        {isAuthenticated && user ? (
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-purple-950/50 to-slate-900 border border-indigo-500/40 flex items-center justify-between shadow-xl">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl p-1.5 rounded-xl bg-black/40 border border-white/10">{user.avatar || '👑'}</span>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-white">{user.displayName || user.username}</span>
+                  <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                    {user.stats?.title || '🌱 Acemi Taklitçi'}
+                  </span>
+                </div>
+                <div className="text-xs text-slate-400 mt-0.5 flex items-center gap-3">
+                  <span>🏆 {user.stats?.gamesWon || 0} Zafer</span>
+                  <span>⭐ {user.stats?.totalScore || 0} TP</span>
+                  <span>🎮 {user.stats?.gamesPlayed || 0} Maç</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { playSound('click'); openAuth('profile'); }}
+              className="px-3 py-1.5 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-bold transition-colors cursor-pointer"
+            >
+              Profili Gör
+            </button>
+          </div>
+        ) : (
+          <div className="p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center text-sm">
+                ⭐
+              </div>
+              <div className="text-xs">
+                <span className="text-white font-bold block">Puanlarını ve unvanlarını kaydet</span>
+                <span className="text-slate-400 text-[11px]">Kayıt ol veya giriş yap, seviye atlayıp Oscar Adayı ol!</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => { playSound('click'); openAuth('register'); }}
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-pink-600 to-indigo-600 hover:opacity-90 text-white text-xs font-black shrink-0 transition-all shadow cursor-pointer"
+            >
+              Giriş / Kayıt
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Main Card Container */}

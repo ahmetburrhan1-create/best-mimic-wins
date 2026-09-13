@@ -1,23 +1,51 @@
-# 🎙️ TAKLİT WEB (Çok Oyunculu Dublaj & Ses Taklidi Partisi)
+# 🎙️ Best Mimic Wins (En İyi Taklit Eden Kazansın)
 
-Arkadaşlarınızla lobi kurup katılabileceğiniz, Türk sineması ve popüler dizi/film repliklerini mikrofonunuzla taklit edip komik dublajlar yaptığınız, ardından herkesin performansını sırayla canlı emojiler eşliğinde izleyip en iyiyi oylayarak puan topladığınız gerçek zamanlı web oyunu!
+> **Real-Time Multiplayer Voice Mimicry & Dubbing Party Game**
+> Arkadaşlarınızla lobi kurup popüler dizi ve film repliklerini mikrofonunuzla taklit ettiğiniz, gizemli kutudan ses değiştirici güçlendirmeler kazandığınız, videoyla senkronize canlı dublajlar yapıp en iyiyi oyladığınız gerçek zamanlı web partisi!
 
 ---
 
-## 🚀 Hızlı Başlangıç (Nasıl Çalıştırılır?)
+## ✨ Ana Özellikler (Key Features)
 
-### 1. Tek Komutla Çalıştırma (Üretim & Oynama Modu)
-Sunucuyu ve derlenmiş istemciyi tek bir port üzerinden (http://localhost:3001) çalıştırmak için:
+- 🤖 **AI YouTube Sahne & Replik Kesici**: İstediğin film/dizi adını yaz, yapay zeka YouTube'dan sahneyi bulup milimetrik 1 cümlelik kesiti ses normalizasyonuyla anında kırpsın ve odaya eklesin.
+- 📦 **Replik & Sahne Paketleri**:
+  - 🌟 **Tüm Replikler (Karma)**
+  - 🚬 **Ezel & Behzat & Kurtlar Vadisi** (Racon ve Dizi Sahneleri)
+  - 🎭 **Komedi & Yeşilçam** (Kolpaçino, G.O.R.A, Organize İşler, Kemal Sunal, Recep İvedik...)
+  - 🎬 **Kült Hollywood** (Fight Club, The Godfather, Breaking Bad, Joker, Scarface...)
+  - ➕ **Kendi Paketini Oluştur**: Özel ikon, renk ve temayla sıfırdan replik koleksiyonu oluşturabilme.
+- 🔑 **Oyuncu Hesap & Seviye Sistemi**:
+  - Güvenli scrypt şifreleme ve kalıcı hesap yönetimi.
+  - Seviye ve unvan ilerlemesi: *Acemi Taklitçi* ➔ *Mahalle Raconcusu* ➔ *Usta Dublör* ➔ *Yeşilçam Efsanesi* ➔ *Oscar Adayı*.
+  - Galibiyet, toplam puan ve maç istatistikleri takibi.
+  - Misafir (Guest) modu ile hesapsız tek tıkla hızlı oyun deneyimi.
+- 🎬 **Senkronize Video Dublaj Oynatıcısı**: Oylama ve vitrin aşamasında orijinal film sahnesi sessizce arkada oynarken yarışmacının canlı dublaj sesiyle milimetrik senkronize şekilde izlenir.
+- 🎁 **Gizemli Kutu & Ses Güçlendirmeleri**: Robot sesi, helyum, dev canavar, radyo ve stüdyo reverb efektleri.
+- 💬 **Canlı Emoji Reaksiyonları & Ses Efektleri**: Sıra sende izlerken odaya anlık emojiler fırlatabilme.
 
+---
+
+## 🚀 Hızlı Başlangıç (Quickstart)
+
+### Gereksinimler
+- **Node.js**: v18 veya üstü
+- **Python**: 3.9+ (AI YouTube Klip Kesici için `yt-dlp` ve `ffmpeg`)
+
+### 1. Kurulum
+```bash
+# Proje kök dizininde bağımlılıkları yükleyin
+npm install
+npm run install:all
+```
+
+### 2. Tek Komutla Çalıştırma (Production / Oyun Modu)
+Sunucuyu ve derlenmiş React Vite arayüzünü tek bir port üzerinden çalıştırmak için:
 ```bash
 npm start
 ```
-
 Tarayıcınızdan **`http://localhost:3001`** adresine gidin.
 
-### 2. Geliştirici (Hot-Reload) Modu
-Hem sunucuyu hem de React Vite arayüzünü anlık değişiklik takibiyle çalıştırmak için:
-
+### 3. Geliştirici (Hot-Reload) Modu
 ```bash
 # Terminal 1: Backend Sunucu (Port 3001)
 npm run dev:server
@@ -28,43 +56,13 @@ npm run dev:client
 
 ---
 
-## 🎮 Oyun Döngüsü & Özellikler
+## 🛠️ Teknoloji Yığını (Tech Stack)
 
-1. **Lobi Sistemi (Lobby & Join Code)**:
-   - 5 haneli pratik oda kodu (Örn: `VGZQ6`).
-   - Host özel oda ayarları (Tur Sayısı: 3/5/7, Kayıt Süresi, Kategori Seçimi, Oyun Modu).
-   - Avatar ve Takma Ad (Nickname) özelleştirme.
-
-2. **1. Aşama: Klip İzleme (Preview)**:
-   - Sahneyi, karakteri ve repliği karaoke altyazısı ve taklit ipuçlarıyla birlikte izleyin.
-
-3. **2. Aşama: Mikrofonla Canlı Kayıt (Recording)**:
-   - Klip sessiz oynarken tarayıcı mikrofonuyla canlı sesinizi kaydedin.
-   - Gerçek zamanlı ses dalgası (visualizer) ve süre geri sayımı.
-   - Erken bitirenler için tek tuşla anında gönderme.
-
-4. **3. Aşama: Sırayla Birlikte İzleme (Showcase)**:
-   - Her oyuncunun dublajı sırayla tüm odaya video eşliğinde dinletilir!
-   - Canlı emoji reaksiyonları (🔥, 😂, 💀, 👏, 🎭, 🏆) ekranda uçar.
-
-5. **4. Aşama: Oylama (Voting)**:
-   - Tüm adayların seslerini tekrar önizleyip en komik veya en başarılı performansa oy verin (kendine oy verilemez).
-
-6. **5. Aşama: Liderlik Tablosu & Podyum (Scoreboard & Podium)**:
-   - Tur kazananı bonusları, kümülatif puanlar, konfetili 1., 2. ve 3. podyum kutlaması!
+- **Frontend**: React 19, Vite, Tailwind CSS, Lucide Icons, Canvas Confetti, Web Audio API
+- **Backend**: Node.js, Express, Socket.IO, Crypto (scryptSync)
+- **AI & Video Motoru**: Python 3, yt-dlp, FFmpeg (EBU R128 Loudness Normalization, H.264 FastStart)
 
 ---
 
-## 🎬 Dahili Replik Kütüphanesi
-- **Kolpaçino**: "Hedef ben miyim Tayfun?"
-- **Ezel**: Ramiz Dayı - "Mesele ölmek değil yeğen..."
-- **G.O.R.A.**: "Komutan Logar, bir cisim yaklaşıyor efendim!"
-- **Kurtlar Vadisi**: Süleyman Çakır - "Bu alemde racon kesmeye değil kafa kesmeye geldik!"
-- **Korkusuz Korkak**: Bombacı Mülayim (Kemal Sunal) - "Mesela yani!"
-- **Aşk-ı Memnu**: Bihter - "Beni beni, Bihter'ini..."
-- **Shrek**: Eşek - "Geldik mi Shrek? Geldik mi?"
-- **Recep İvedik**: "Gonuşma laynn!"
-- **Matrix**: Morpheus - "Kırmızı hap mı mavi hap mı?"
-- **Yeşilçam / Şener Şen**: "Yaz kızım: 200 torba çimento..."
-
-Yeni klip eklemek için `server/clipsData.js` dosyasını düzenleyebilirsiniz.
+## 📄 Lisans
+MIT License.

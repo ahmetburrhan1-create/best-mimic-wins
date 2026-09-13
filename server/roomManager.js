@@ -32,6 +32,7 @@ class RoomManager {
       currentRound: 0,
       clips: [],
       customClips: [],
+      usedClipIds: new Set(),
       currentClip: null,
       players: new Map(),
       showcaseIndex: 0,
@@ -160,8 +161,25 @@ class RoomManager {
     room.currentRound = 0;
     const needed = room.settings.rounds;
     const custom = room.customClips || [];
-    const pool = getRandomClips(room.settings.category, Math.max(0, needed - custom.length));
-    room.clips = [...custom, ...pool].slice(0, needed);
+
+    if (!room.usedClipIds) room.usedClipIds = new Set();
+    const excluded = Array.from(room.usedClipIds);
+    let pool = getRandomClips(room.settings.category, Math.max(0, needed - custom.length), excluded);
+
+    // If remaining pool couldn't fulfill, reset and take from fresh pool
+    let selectedClips = [...custom, ...pool];
+    if (selectedClips.length < needed) {
+      room.usedClipIds.clear();
+      const freshPool = getRandomClips(room.settings.category, Math.max(0, needed - custom.length));
+      selectedClips = [...custom, ...freshPool];
+    }
+
+    room.clips = selectedClips.slice(0, needed);
+    // Mark as used
+    room.clips.forEach(c => {
+      if (c?.id) room.usedClipIds.add(c.id);
+    });
+
     for (const player of room.players.values()) {
       player.score = 0;
       player.roundScore = 0;
@@ -174,7 +192,17 @@ class RoomManager {
   startNextRound(room) {
     this.clearTimer(room);
     room.currentRound += 1;
-    room.currentClip = room.clips[room.currentRound - 1] || getRandomClips('all', 1)[0];
+    
+    let roundClip = room.clips[room.currentRound - 1];
+    if (!roundClip) {
+      const excluded = Array.from(room.usedClipIds || []);
+      const fallback = getRandomClips(room.settings.category, 1, excluded);
+      roundClip = fallback[0] || getRandomClips('all', 1)[0];
+      if (roundClip?.id && room.usedClipIds) {
+        room.usedClipIds.add(roundClip.id);
+      }
+    }
+    room.currentClip = roundClip;
 
     for (const player of room.players.values()) {
       player.hasRecorded = false;

@@ -12,6 +12,7 @@ export default function ClipPlayer({
   const videoRef = useRef(null);
   const dubbedAudioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isActuallyMuted, setIsActuallyMuted] = useState(isMuted);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(clip?.duration || 4);
 
@@ -24,22 +25,28 @@ export default function ClipPlayer({
 
     video.currentTime = 0;
     video.muted = isMuted;
+    video.volume = 1.0;
+    setIsActuallyMuted(isMuted);
 
     if (autoPlay) {
       const playPromise = video.play();
       if (playPromise !== undefined) {
         playPromise
-          .then(() => setIsPlaying(true))
+          .then(() => {
+            setIsPlaying(true);
+            setIsActuallyMuted(video.muted);
+          })
           .catch((err) => {
-            console.log('Video autoplay prevented, clicking play needed:', err);
-            // Fallback mute and play if browser blocked unmuted autoplay
+            console.log('Video autoplay unmuted prevented, falling back to muted autoplay:', err);
             video.muted = true;
+            setIsActuallyMuted(true);
             video.play().catch(() => {});
           });
       }
 
       if (dubbedAudioUrl && dubbedAudioRef.current) {
         dubbedAudioRef.current.currentTime = 0;
+        dubbedAudioRef.current.volume = 1.0;
         dubbedAudioRef.current.play().catch(e => console.log('Dubbed audio play error:', e));
       }
     }
@@ -74,15 +81,35 @@ export default function ClipPlayer({
     };
   }, [clip?.id, videoSrc, isMuted, dubbedAudioUrl, autoPlay]);
 
-  const handleReplay = () => {
+  const handleToggleMute = (e) => {
+    if (e) e.stopPropagation();
+    const video = videoRef.current;
+    if (!video) return;
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    video.volume = 1.0;
+    setIsActuallyMuted(nextMuted);
+    if (!nextMuted) {
+      video.play().catch(() => {});
+    }
+  };
+
+  const handleReplay = (e) => {
+    if (e) e.stopPropagation();
     const video = videoRef.current;
     if (!video) return;
     video.currentTime = 0;
+    video.volume = 1.0;
+    if (!isMuted) {
+      video.muted = false;
+      setIsActuallyMuted(false);
+    }
     video.play();
     setIsPlaying(true);
 
     if (dubbedAudioUrl && dubbedAudioRef.current) {
       dubbedAudioRef.current.currentTime = 0;
+      dubbedAudioRef.current.volume = 1.0;
       dubbedAudioRef.current.play();
     }
   };
@@ -98,8 +125,22 @@ export default function ClipPlayer({
         playsInline
         webkit-playsinline="true"
         preload="auto"
-        className="absolute inset-0 w-full h-full object-contain bg-black"
+        className="absolute inset-0 w-full h-full object-contain bg-black cursor-pointer"
+        onClick={handleToggleMute}
       />
+
+      {/* If scene is meant to have audio but browser auto-muted it: Show Click-to-Unmute Banner */}
+      {!isMuted && isActuallyMuted && (
+        <div 
+          onClick={handleToggleMute}
+          className="absolute inset-0 z-20 flex items-center justify-center bg-black/50 backdrop-blur-[2px] cursor-pointer"
+        >
+          <div className="px-6 py-3.5 rounded-2xl bg-gradient-to-r from-amber-500 to-pink-500 text-white font-black text-sm sm:text-base flex items-center gap-2.5 shadow-2xl shadow-amber-500/40 animate-pulse hover:scale-105 transition-all">
+            <Volume2 className="w-5 h-5" />
+            <span>🔊 Sahne Sesini Açmak İçin Dokun / Tıkla</span>
+          </div>
+        </div>
+      )}
 
       {/* Subtle Vignette Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/60 pointer-events-none" />
@@ -129,14 +170,18 @@ export default function ClipPlayer({
               <span>Oyuncunun Dublaj Sesi</span>
             </div>
           ) : (
-            <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full backdrop-blur-md border text-xs font-black ${
-              isMuted
-                ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-            }`}>
-              {isMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 animate-pulse" />}
-              <span>{isMuted ? 'Sessiz Sahne' : 'Orijinal Sahne Sesi'}</span>
-            </div>
+            <button
+              onClick={handleToggleMute}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md border text-xs font-black transition-all hover:scale-105 active:scale-95 cursor-pointer ${
+                isActuallyMuted
+                  ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
+                  : 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+              }`}
+              title={isActuallyMuted ? 'Sesi Aç' : 'Sesi Kapat'}
+            >
+              {isActuallyMuted ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5 animate-pulse" />}
+              <span>{isActuallyMuted ? 'Sesi Aç 🔇' : 'Ses Açık 🔊'}</span>
+            </button>
           )}
 
           <button

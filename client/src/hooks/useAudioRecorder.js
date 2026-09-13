@@ -26,8 +26,10 @@ export function useAudioRecorder() {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          noiseSuppression: false, // Prevents browser from swallowing loud impressions and voice acting
+          autoGainControl: true,
+          channelCount: 1,
+          sampleRate: 48000
         }
       });
       streamRef.current = stream;
@@ -59,15 +61,17 @@ export function useAudioRecorder() {
       };
       updateLevel();
 
-      // Mime type resolution
-      let options = {};
+      // Mime type resolution and high quality audio bitrate
+      let options = {
+        audioBitsPerSecond: 128000
+      };
       if (typeof MediaRecorder.isTypeSupported === 'function') {
         if (MediaRecorder.isTypeSupported('audio/webm;codecs=opus')) {
-          options = { mimeType: 'audio/webm;codecs=opus' };
+          options.mimeType = 'audio/webm;codecs=opus';
         } else if (MediaRecorder.isTypeSupported('audio/webm')) {
-          options = { mimeType: 'audio/webm' };
+          options.mimeType = 'audio/webm';
         } else if (MediaRecorder.isTypeSupported('audio/mp4')) {
-          options = { mimeType: 'audio/mp4' };
+          options.mimeType = 'audio/mp4';
         }
       }
 
@@ -137,6 +141,7 @@ export function useAudioRecorder() {
       previewAudioRef.current.pause();
     }
     const audio = new Audio(audioUrl);
+    audio.volume = 1.0;
     previewAudioRef.current = audio;
     setIsPlayingPreview(true);
     audio.onended = () => setIsPlayingPreview(false);

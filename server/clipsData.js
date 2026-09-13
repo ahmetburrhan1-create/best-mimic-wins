@@ -192,14 +192,37 @@ export function addCustomClip(clip) {
   return newClip;
 }
 
-export function getRandomClips(category = "all", count = 3) {
+export function getRandomClips(category = "all", count = 3, excludeIds = []) {
   let pool = [...customClipsPool, ...CLIPS_DATA];
   if (category && category !== "all") {
-    pool = pool.filter(c => c.category === category);
+    const categoryClips = pool.filter(c => c.category === category);
+    if (categoryClips.length > 0) {
+      pool = categoryClips;
+    }
   }
-  if (pool.length < count) {
-    pool = [...customClipsPool, ...CLIPS_DATA];
+
+  // Filter out already used clips
+  const excludeSet = new Set(excludeIds || []);
+  let available = pool.filter(c => !excludeSet.has(c.id));
+
+  // If we don't have enough fresh clips, we use all available + remaining pool
+  if (available.length < count) {
+    const remainingNeeded = count - available.length;
+    const poolWithoutAvailable = pool.filter(c => !available.some(a => a.id === c.id));
+    // Fisher-Yates on poolWithoutAvailable
+    for (let i = poolWithoutAvailable.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [poolWithoutAvailable[i], poolWithoutAvailable[j]] = [poolWithoutAvailable[j], poolWithoutAvailable[i]];
+    }
+    available = [...available, ...poolWithoutAvailable.slice(0, remainingNeeded)];
   }
-  const shuffled = pool.sort(() => 0.5 - Math.random());
+
+  // Fisher-Yates shuffle
+  const shuffled = [...available];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
   return shuffled.slice(0, count);
 }

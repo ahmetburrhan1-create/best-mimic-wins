@@ -1,8 +1,8 @@
-// Web Audio API DSP Effects: Helium (Pitch Up), Monster (Pitch Down), Robot, Echo
+// Web Audio API DSP Effects: Helium (Pitch Up), Monster (Pitch Down), Robot, Echo + Master Volume Booster
 
 let audioCtx = null;
 
-function getAudioContext() {
+export function getAudioContext() {
   if (!audioCtx) {
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (AudioContextClass) {
@@ -10,15 +10,32 @@ function getAudioContext() {
     }
   }
   if (audioCtx && audioCtx.state === 'suspended') {
-    audioCtx.resume();
+    audioCtx.resume().catch(() => {});
   }
   return audioCtx;
+}
+
+// Auto unlock on first user interaction anywhere
+if (typeof window !== 'undefined') {
+  const unlock = () => {
+    const ctx = getAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().catch(() => {});
+    }
+  };
+  ['click', 'touchstart', 'keydown', 'mousedown'].forEach(evt => {
+    window.addEventListener(evt, unlock, { passive: true });
+  });
 }
 
 export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnded = null) {
   try {
     const ctx = getAudioContext();
     if (!ctx) return null;
+
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {});
+    }
 
     // Fetch and decode base64 or blob audio
     const response = await fetch(audioDataUrl);
@@ -81,7 +98,7 @@ export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnde
         oscGain.gain.value = 0.5;
 
         const mainGain = ctx.createGain();
-        mainGain.gain.value = 0.8;
+        mainGain.gain.value = 1.2;
 
         const bandpass = ctx.createBiquadFilter();
         bandpass.type = 'bandpass';
@@ -113,10 +130,10 @@ export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnde
         filter.frequency.value = 2000;
 
         const dryGain = ctx.createGain();
-        dryGain.gain.value = 1.0;
+        dryGain.gain.value = 1.2;
 
         const wetGain = ctx.createGain();
-        wetGain.gain.value = 0.6;
+        wetGain.gain.value = 0.7;
 
         const merger = ctx.createGain();
 
@@ -142,7 +159,21 @@ export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnde
       }
     }
 
-    lastNode.connect(ctx.destination);
+    // Professional Master Dynamics Compressor (evens out loud and quiet parts)
+    const compressor = ctx.createDynamicsCompressor();
+    compressor.threshold.value = -22;
+    compressor.knee.value = 24;
+    compressor.ratio.value = 10;
+    compressor.attack.value = 0.003;
+    compressor.release.value = 0.2;
+
+    // Master Voice Volume Booster (boosts low microphone inputs by 2.4x)
+    const masterGain = ctx.createGain();
+    masterGain.gain.value = 2.4;
+
+    lastNode.connect(compressor);
+    compressor.connect(masterGain);
+    masterGain.connect(ctx.destination);
 
     source.onended = () => {
       if (typeof onEnded === 'function') onEnded();
@@ -158,13 +189,19 @@ export async function playWithEffect(audioDataUrl, effectType = 'normal', onEnde
       }
     };
   } catch (err) {
-    console.error('Error playing with audio effect:', err);
-    // Fallback: standard HTML5 Audio
-    const fallback = new Audio(audioDataUrl);
-    if (effectType === 'helium') fallback.playbackRate = 1.4;
-    else if (effectType === 'monster') fallback.playbackRate = 0.75;
-    fallback.onended = onEnded;
-    fallback.play().catch(() => {});
-    return { stop: () => fallback.pause() };
+    console.error('Error playing with audio effect, falling back to standard audio:', err);
+    // Fallback: standard HTML5 Audio with max volume
+    try {
+      const fallback = new Audio(audioDataUrl);
+      fallback.volume = 1.0;
+      if (effectType === 'helium') fallback.playbackRate = 1.4;
+      else if (effectType === 'monster') fallback.playbackRate = 0.75;
+      fallback.onended = onEnded;
+      const p = fallback.play();
+      if (p && p.catch) p.catch(() => {});
+      return { stop: () => fallback.pause() };
+    } catch (e) {
+      return null;
+    }
   }
 }

@@ -1,10 +1,7 @@
 services:
   - type: web
-    name: taklit-web
-    runtime: node
+    name: best-mimic-wins
+    env: docker
     plan: free
-    buildCommand: npm run build
-    startCommand: npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20
+    region: frankfurt
+    autoDeploy: true

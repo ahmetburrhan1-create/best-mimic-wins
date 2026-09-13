@@ -209,8 +209,58 @@ export const DEFAULT_PACKS = [
   }
 ];
 
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const DATA_DIR = path.join(__dirname, 'data');
+const PACKS_FILE = path.join(DATA_DIR, 'packs.json');
+const CLIPS_FILE = path.join(DATA_DIR, 'custom_clips.json');
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
 let customClipsPool = [];
 let customPacksPool = [];
+
+function loadPacksData() {
+  try {
+    if (fs.existsSync(PACKS_FILE)) {
+      const raw = fs.readFileSync(PACKS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        customPacksPool = parsed;
+      }
+    }
+    if (fs.existsSync(CLIPS_FILE)) {
+      const raw = fs.readFileSync(CLIPS_FILE, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        customClipsPool = parsed;
+      }
+    }
+  } catch (err) {
+    console.error('Error loading packs or custom clips:', err);
+  }
+}
+
+function savePacksData() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFileSync(PACKS_FILE, JSON.stringify(customPacksPool, null, 2), 'utf-8');
+    fs.writeFileSync(CLIPS_FILE, JSON.stringify(customClipsPool, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('Error saving packs or custom clips:', err);
+  }
+}
+
+// Initial load on server startup
+loadPacksData();
 
 export function getAllPacks() {
   const allClips = [...customClipsPool, ...CLIPS_DATA];
@@ -241,6 +291,7 @@ export function createCustomPack({ name, description = '', icon = '📦', color 
     clipIds: Array.isArray(clipIds) ? clipIds : []
   };
   customPacksPool.unshift(newPack);
+  savePacksData();
   return newPack;
 }
 
@@ -274,6 +325,7 @@ export function addCustomClip(clip, targetPackId = null) {
     }
   }
 
+  savePacksData();
   return newClip;
 }
 

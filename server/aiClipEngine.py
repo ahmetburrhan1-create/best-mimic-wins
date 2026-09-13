@@ -7,7 +7,26 @@ import hashlib
 import subprocess
 import shutil
 
-# Ensure yt_dlp is installed and imported
+# Ensure site-packages (including --user installs on Linux/Render) are on sys.path
+import site
+try:
+    user_site = site.getusersitepackages()
+    if user_site and os.path.exists(user_site) and user_site not in sys.path:
+        sys.path.insert(0, user_site)
+except Exception:
+    pass
+
+for p in glob.glob(os.path.expanduser("~/.local/lib/python*/site-packages")):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
+# Bundle standalone yt-dlp.zip fallback
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+ZIP_YT_DLP = os.path.join(SERVER_DIR, "yt-dlp.zip")
+if os.path.exists(ZIP_YT_DLP) and ZIP_YT_DLP not in sys.path:
+    sys.path.insert(0, ZIP_YT_DLP)
+
+# Import yt_dlp
 try:
     import yt_dlp
 except ImportError:
@@ -15,7 +34,11 @@ except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "yt-dlp", "imageio-ffmpeg"])
         import yt_dlp
     except Exception as _e:
-        pass
+        if os.path.exists(ZIP_YT_DLP):
+            sys.path.insert(0, ZIP_YT_DLP)
+            import yt_dlp
+        else:
+            raise RuntimeError(f"yt_dlp module could not be loaded: {_e}")
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')

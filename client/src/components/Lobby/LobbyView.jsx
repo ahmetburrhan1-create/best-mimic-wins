@@ -18,6 +18,7 @@ export default function LobbyView() {
   const [newPackDesc, setNewPackDesc] = useState('');
   const [newPackIcon, setNewPackIcon] = useState('📦');
   const [newPackColor, setNewPackColor] = useState('from-purple-600 to-indigo-700');
+  const [packCreatedMsg, setPackCreatedMsg] = useState(false);
 
   // AI Clip State & Target Pack
   const [aiQuery, setAiQuery] = useState('');
@@ -100,24 +101,37 @@ export default function LobbyView() {
     if (!newPackName.trim()) return;
 
     playSound('win');
-    const res = await createCustomPack({
+    const packPayload = {
       name: newPackName.trim(),
       description: newPackDesc.trim() || 'Özel oluşturulan sahne paketi.',
       icon: newPackIcon,
       color: newPackColor
-    });
+    };
+    const res = await createCustomPack(packPayload);
 
     if (res?.success && res.pack) {
+      try {
+        const stored = JSON.parse(localStorage.getItem('taklit_saved_custom_packs') || '[]');
+        const updated = [res.pack, ...stored.filter((p) => p.id !== res.pack.id)];
+        localStorage.setItem('taklit_saved_custom_packs', JSON.stringify(updated));
+      } catch (err) {}
+
       if (isHost) {
         updateSettings({ selectedPackId: res.pack.id });
       }
       setAiTargetPackId(res.pack.id);
       setCustomClipTargetPackId(res.pack.id);
-    }
+      setPackCreatedMsg(true);
 
-    setShowCreatePackModal(false);
-    setNewPackName('');
-    setNewPackDesc('');
+      setTimeout(() => {
+        setPackCreatedMsg(false);
+        setShowCreatePackModal(false);
+        setNewPackName('');
+        setNewPackDesc('');
+      }, 1400);
+    } else {
+      setShowCreatePackModal(false);
+    }
   };
 
   const handleSelectPack = (packId) => {
@@ -358,8 +372,9 @@ export default function LobbyView() {
                     </span>
                   )}
                   {pack.isDefault === false && (
-                    <span className="text-[9px] font-black text-pink-400 uppercase tracking-widest bg-pink-500/10 px-1.5 py-0.5 rounded">
-                      ÖZEL
+                    <span className="text-[9px] font-black text-emerald-400 uppercase tracking-widest bg-emerald-500/10 border border-emerald-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                      <span>💾</span>
+                      <span>KAYITLI</span>
                     </span>
                   )}
                 </div>
@@ -833,6 +848,13 @@ export default function LobbyView() {
                 </span>
               </div>
             </div>
+
+            {packCreatedMsg && (
+              <div className="p-3 mb-3 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-black flex items-center justify-center gap-2">
+                <Check className="w-4 h-4 text-emerald-400" />
+                <span>💾 Paket başarıyla diske ve tarayıcınıza kaydedildi!</span>
+              </div>
+            )}
 
             <form onSubmit={handleCreatePackSubmit} className="space-y-3.5 mt-4">
               <div>

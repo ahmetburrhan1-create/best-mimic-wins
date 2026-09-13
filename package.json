@@ -4,7 +4,7 @@
   "description": "Çok Oyunculu Ses Taklidi ve Dublaj Web Oyunu",
   "scripts": {
     "start": "node server/server.js",
-    "build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client && (pip3 install --user -r requirements.txt || pip install --user -r requirements.txt || true)",
     "dev:server": "node --watch server/server.js",
     "dev:client": "npm --prefix client run dev"
   },

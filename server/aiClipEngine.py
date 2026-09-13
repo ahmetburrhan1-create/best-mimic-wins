@@ -5,7 +5,17 @@ import glob
 import json
 import hashlib
 import subprocess
-import yt_dlp
+import shutil
+
+# Ensure yt_dlp is installed and imported
+try:
+    import yt_dlp
+except ImportError:
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "--user", "yt-dlp", "imageio-ffmpeg"])
+        import yt_dlp
+    except Exception as _e:
+        pass
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -14,7 +24,21 @@ if hasattr(sys.stdout, 'reconfigure'):
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CLIPS_DIR = os.path.join(BASE_DIR, "client", "public", "clips")
 TEMP_DIR = os.path.join(BASE_DIR, "scratch", "ai_temp")
-FFMPEG = r"C:\Users\ahmet\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe"
+
+# Dynamically locate ffmpeg
+FFMPEG = None
+try:
+    import imageio_ffmpeg
+    FFMPEG = imageio_ffmpeg.get_ffmpeg_exe()
+except Exception:
+    pass
+
+if not FFMPEG or not os.path.exists(FFMPEG):
+    local_win_ffmpeg = r"C:\Users\ahmet\AppData\Local\Python\pythoncore-3.14-64\Lib\site-packages\imageio_ffmpeg\binaries\ffmpeg-win-x86_64-v7.1.exe"
+    if os.path.exists(local_win_ffmpeg):
+        FFMPEG = local_win_ffmpeg
+    else:
+        FFMPEG = shutil.which("ffmpeg") or "ffmpeg"
 
 os.makedirs(CLIPS_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
@@ -262,6 +286,14 @@ def extract_and_optimize_clip(query, is_random=False):
     ]
     subprocess.run(cmd, capture_output=True, check=True)
     
+    # Also sync to client/dist/clips if present in production
+    dist_clips_dir = os.path.join(BASE_DIR, "client", "dist", "clips")
+    if os.path.exists(dist_clips_dir):
+        try:
+            shutil.copy2(final_filepath, os.path.join(dist_clips_dir, final_filename))
+        except Exception:
+            pass
+
     # Clean temp raw video & subs
     for f in glob.glob(f"{temp_dl_base}*"):
         try: os.remove(f)

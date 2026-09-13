@@ -16,7 +16,8 @@ export function generateAiClip({ query = '', isRandom = false, onProgress = null
       args.push(query.trim());
     }
 
-    const proc = spawn('python', args, {
+    const pythonCmd = process.platform === 'win32' ? 'python' : (process.env.PYTHON_BIN || 'python3');
+    const proc = spawn(pythonCmd, args, {
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
     });

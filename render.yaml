@@ -1,7 +1,10 @@
 services:
   - type: web
     name: best-mimic-wins
-    env: docker
+    runtime: node
     plan: free
-    region: frankfurt
-    autoDeploy: true
+    buildCommand: npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20

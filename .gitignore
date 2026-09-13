@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Build outputs
+client/dist/
+
+# Python caches and temp files
+__pycache__/
+server/__pycache__/
+*.pyc
+temp_*.mp4
+temp_*.wav
+temp_*.m4a
+*.part
+*.ytdl
+
+# Logs and environment
+*.log
+.env
+npm-debug.log*
+yarn-debug.log*
+
+# System and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+scratch/
+scripts/
+

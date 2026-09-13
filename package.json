@@ -1,0 +1,13 @@
+{
+  "name": "taklit-web",
+  "version": "1.0.0",
+  "description": "Çok Oyunculu Ses Taklidi ve Dublaj Web Oyunu",
+  "scripts": {
+    "start": "node server/server.js",
+    "build": "npm install --prefix server && npm install --prefix client && npm run build --prefix client",
+    "dev:server": "node --watch server/server.js",
+    "dev:client": "npm --prefix client run dev"
+  },
+  "keywords": ["game", "voice-mimicry", "dubbing", "multiplayer", "jackbox"],
+  "author": "Jalapeno"
+}
